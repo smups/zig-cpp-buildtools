@@ -9,7 +9,7 @@ const Allocator = std.mem.Allocator;
 /// will replace `yeet` with `skeet`. There is no limit to the number of paramters passed in this
 /// way using `dict`. 
 pub fn replace_all_unmanaged(
-    comptime dict: type,
+    dict: anytype,
     alloc: Allocator,
     buffer: *std.ArrayList(u8),
     input_file: std.fs.File,
@@ -26,7 +26,7 @@ pub fn replace_all_unmanaged(
     var zig_str = try zstr.fromConstBytes(alloc, buffer.items);
 
     // Replace all matching entries in buffer
-    inline for (std.meta.fields(dict)) |field| {
+    inline for (std.meta.fields(@TypeOf(dict))) |field| {
         try zig_str.replace(field, @field(dict, field));
     }
 
@@ -37,7 +37,7 @@ pub fn replace_all_unmanaged(
 
 /// See `replace_all_unmanaged`
 pub fn replace_all(
-    comptime dict: type,
+    dict: anytype,
     alloc: Allocator,
     input_file: std.fs.File,
     output_file: std.fs.File
@@ -46,15 +46,17 @@ pub fn replace_all(
     try replace_all_unmanaged(dict, alloc, &buffer, input_file, output_file);
 }
 
-/// Iterate (recusively) over all elements in `input_dir` and pass them to `replace_all`.
+/// Iterate (recusively) over all elements in `input_dir` and pass them to `replace_all`. Returns
+/// number of replaced files.
 pub fn replace_all_in_dir(
-    comptime dict: type,
+    dict: anytype,
     alloc: Allocator,
     input_dir: std.fs.Dir,
     output_dir: std.fs.Dir,
-) !void {
+) !usize {
     // Re-use the same buffer
     var buffer = std.ArrayList(u8).init();
+    var n_replaced = 0;
     
     // Iterate over input dir
     var input_iter = try input_dir.openIterableDir(".", .{});
@@ -72,5 +74,9 @@ pub fn replace_all_in_dir(
 
         //Run our replacement procedure
         try replace_all_unmanaged(dict, alloc, &buffer, input_file, output_file);
+
+        n_replaced += 1;
     }
+    
+    return n_replaced;
 }
