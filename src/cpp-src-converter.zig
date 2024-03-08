@@ -55,7 +55,7 @@ pub fn replaceAllInDir(
     output_dir: std.fs.Dir,
 ) !usize {
     // Re-use the same buffer
-    var buffer = std.ArrayList(u8).init();
+    var buffer = std.ArrayList(u8).init(alloc);
     defer buffer.deinit();
     var n_replaced: usize = 0;
     
