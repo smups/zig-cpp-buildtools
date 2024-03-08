@@ -114,7 +114,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             // These are all just pointers to args
             var out_path: ?[]const u8 = null;
             var in_path: ?[]const u8 = null;
-            var dictionary = undefined;
+            var dictionary: Dict = undefined;
             zeroDictionary(dictionary);
 
             if (args.len < 3) {
