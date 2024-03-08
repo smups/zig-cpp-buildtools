@@ -190,8 +190,8 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             }
 
             return .{
-                .in_dir = in_path orelse unreachable,
-                .out_dir = out_path orelse unreachable,
+                .in_path = in_path orelse unreachable,
+                .out_path = out_path orelse unreachable,
                 .dictionary = dictionary,
                 ._raw_args = args,
                 ._alloc = alloc
