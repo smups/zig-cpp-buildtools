@@ -202,7 +202,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
         }
         
         fn zeroDictionary(dict: Dict) void {
-            inline for (std.meta.Fields(Dict)) |field| {
+            inline for (std.meta.fields(Dict)) |field| {
                 @field(dict, field.name) = null;
             }
         }
