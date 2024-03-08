@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) !void {
 
     // Export this project as a module called zig-cpp-buildtools
     _ = b.addModule("zig-cpp-buildtools", .{
-        .source_file = .{ .path = "src/main.zig" },
+        .source_file = .{ .path = "src/lib.zig" },
         .dependencies = &.{
             .{ .name = "zigstr", .module = zigstr.module("zigstr") }
         }
