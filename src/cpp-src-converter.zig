@@ -85,11 +85,7 @@ pub fn replaceAllInDir(
 pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
     // Verify that `Dict` is a struct and has fields of type ?[]const u8
     inline for (std.meta.fields(Dict)) |field| {
-        const is_struct = switch(@typeInfo(Dict)) {
-            std.builtin.Type.Struct => true,
-            else => false,
-        };
-        if (field.type != ?[]const u8 or !is_struct) {
+        if (field.type != ?[]const u8) {
             @compileError("Dict type must be a struct where all fields have type ?[]const u8");
         }
     }
