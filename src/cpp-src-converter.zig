@@ -115,7 +115,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             var out_path: ?[]const u8 = null;
             var in_path: ?[]const u8 = null;
             var dictionary: Dict = undefined;
-            zeroDictionary(dictionary);
+            zeroDictionary(&dictionary);
 
             if (args.len < 3) {
                 return ParseError.MissingDirs;
@@ -202,7 +202,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             std.process.argsFree(self._alloc, self._args);
         }
         
-        fn zeroDictionary(dict: Dict) void {
+        fn zeroDictionary(dict: *Dict) void {
             inline for (std.meta.fields(Dict)) |field| {
                 @field(dict, field.name) = null;
             }
@@ -212,7 +212,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             comptime {
                 var usage =
                     "Usage: " ++ command ++ " [input_path] [output_path] [replacement directives]\n\n";
-                usage ++
+                usage = usage ++
                     \\Arguments:
                     \\    [input_path]: path to input source file.
                     \\    [output_path]: path to write modified source file to.
@@ -225,7 +225,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                     \\Targets:
                 ;
                 inline for (std.meta.fieldNames(Dict)) |target_name| {
-                    usage ++ "    " ++ target_name ++ "\n";
+                    usage = usage ++ "    " ++ target_name ++ "\n";
                 }
                 return usage;
             }    
