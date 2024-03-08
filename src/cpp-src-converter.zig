@@ -133,11 +133,11 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 }
 
                 // First argument is the input folder
-                if (i == 2) {
+                if (i == 1) {
                     in_path = current_arg;
                     continue;
                 // Second argument is the output folder
-                } else if (i == 3) {
+                } else if (i == 2) {
                     out_path = current_arg;
                     continue;
                 } else if (!eql(u8, "-r", current_arg)) {
@@ -145,7 +145,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 }
 
                 // All other arguments are replacement directives
-                if (args.len < i + 1) {
+                if (args.len <= i + 1) {
                     return ParseError.MalformedReplacementDirective;
                 }
 
@@ -153,7 +153,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 i += 1;
 
                 // Split TARGET=REPLACEMENT into target and replacement strings
-                var split = std.mem.split(u8, args[i + 1], "=");        
+                var split = std.mem.split(u8, args[i], "=");        
                 var n_splits: usize = 0;
 
                 var target: []const u8 = undefined;
@@ -167,7 +167,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                     }
                 }
         
-                if (n_splits != 1) {
+                if (n_splits != 2) {
                     return ParseError.MalformedReplacementDirective;
                 }
 
@@ -197,7 +197,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 ._alloc = alloc
             };
         }
-
+        
         pub fn deinit(self: @This()) void {
             std.process.argsFree(self._alloc, self._args);
         }
@@ -236,3 +236,4 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
         }
     }; // return struct { ... }; <- do not remove semicolon
 }
+
