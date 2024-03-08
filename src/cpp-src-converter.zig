@@ -105,7 +105,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             UnknownReplacementTarget  
         };
 
-        pub const command_usage = generateUsage(command);
+        pub const command_usage = generateUsage();
 
         pub fn parseArgsAlloc(alloc: Allocator) !@This() {
             // Allocate arguments.
@@ -114,7 +114,8 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             // These are all just pointers to args
             var out_path: ?[]const u8 = null;
             var in_path: ?[]const u8 = null;
-            var dictionary = zeroDictionary(undefined);
+            var dictionary = undefined;
+            zeroDictionary(dictionary);
 
             if (args.len < 3) {
                 return ParseError.MissingDirs;
