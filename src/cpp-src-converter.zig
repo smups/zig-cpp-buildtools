@@ -145,31 +145,15 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 }
 
                 // All other arguments are replacement directives
-                if (args.len <= i + 1) {
+                if (args.len <= i + 2) {
                     return ParseError.MalformedReplacementDirective;
                 }
 
                 // skip over this argument next iteration        
                 i += 1;
-
-                // Split TARGET=REPLACEMENT into target and replacement strings
-                var split = std.mem.split(u8, args[i], "=");        
-                var n_splits: usize = 0;
-
-                var target: []const u8 = undefined;
-                var replacement: []const u8 = undefined;        
-
-                while (split.next()) |substr| : (n_splits += 1) {
-                    if (n_splits == 0) {
-                        target = substr;
-                    } else if (n_splits == 1) {
-                        replacement = substr;
-                    }
-                }
-        
-                if (n_splits != 2) {
-                    return ParseError.MalformedReplacementDirective;
-                }
+                var target: []const u8 = args[i];
+                i += 1;
+                var replacement: []const u8 = args[i];        
 
                 // Verify that TARGET is actually supposed to be replaced and construct dictionary
                 inline for (std.meta.fields(Dict)) |field| {
@@ -218,7 +202,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                     \\    [input_path]: path to input source file.
                     \\    [output_path]: path to write modified source file to.
                     \\    [replacement directives]: sequence of arguments with the following format:
-                    \\        -r TARGET=REPLACEMENT
+                    \\        -r TARGET REPLACEMENT
                     \\    Each TARGET string found in the original source file will be replaced by
                     \\    its corresponding REPLACEMENT string. Note that all targets MUST have a
                     \\    replacement specified. For a list of possible targets, see down below.
