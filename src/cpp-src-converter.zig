@@ -67,7 +67,7 @@ pub fn replaceAllInDir(
         const input_file = input_dir.openFile(entry.path, .{});
 
         // Create output file if it does not exist
-        output_dir.makePath(entry.dir) catch |err| switch (err) {
+        output_dir.makePath(entry.path) catch |err| switch (err) {
             error.PathAlreadyExists => {},
             else => return err
         };
