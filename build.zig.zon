@@ -1,6 +1,6 @@
 .{
 	.name = "zig-cpp-buildtools",
-	.version = "0.2.8",
+	.version = "0.2.9",
 	.dependencies = .{
         .zigstr = .{
             .url = "https://codeberg.org/dude_the_builder/zigstr/archive/v0.11.2.tar.gz",

@@ -210,9 +210,10 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
 
         fn generateUsage() []const u8 {
             comptime {
-                var usage =
-                    "Usage: " ++ command ++ " [input_path] [output_path] [replacement directives]\n\n";
-                usage = usage ++
+                var usage: []const u8 = "Usage: "
+                    ++ command
+                    ++ " [input_path] [output_path] [replacement directives]\n\n"
+                    ++
                     \\Arguments:
                     \\    [input_path]: path to input source file.
                     \\    [output_path]: path to write modified source file to.
@@ -223,12 +224,15 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                     \\    replacement specified. For a list of possible targets, see down below.
                     \\
                     \\Targets:
+                    \\
                 ;
+                
                 inline for (std.meta.fieldNames(Dict)) |target_name| {
                     usage = usage ++ "    " ++ target_name ++ "\n";
                 }
+                
                 return usage;
-            }    
+            }   
         }
     }; // return struct { ... }; <- do not remove semicolon
 }
