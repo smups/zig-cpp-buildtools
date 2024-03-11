@@ -7,32 +7,50 @@ const Allocator = std.mem.Allocator;
 /// corresponding targets, as defined by the `dict` paramter. `input_file` and `output_file` may
 /// point to the same file. The `dict` paramter works as follows: passing `.{ .yeet = "skeet" }`
 /// will replace `yeet` with `skeet`. There is no limit to the number of paramters passed in this
-/// way using `dict`. 
+/// way using `dict`.
 pub fn replaceAllUnmanaged(
     dict: anytype,
     alloc: Allocator,
     buffer: *std.ArrayList(u8),
     input_file: std.fs.File,
     output_file: std.fs.File
-) !void {    
+) !usize {
     // Clear buffer
-    buffer.items = [0]u8;
-    
+    buffer.items = &[_]u8 {};
+
     // Read file
     try input_file.reader().readAllArrayList(buffer, std.math.maxInt(usize));
-    input_file.close();
 
     // Turn buffer into string
     var zig_str = try zstr.fromConstBytes(alloc, buffer.items);
+    defer zig_str.deinit();
 
     // Replace all matching entries in buffer
+    var n_reps: usize = 0;
     inline for (std.meta.fields(@TypeOf(dict))) |field| {
-        try zig_str.replace(field, @field(dict, field));
+        n_reps += try zig_str.replace(field.name, @field(dict, field.name));
     }
 
     //Write shit to file
     try output_file.writer().writeAll(buffer.items);
-    output_file.close();
+
+    return n_reps;
+}
+
+test replaceAllUnmanaged {
+    // Set-up test files
+    const tmp_dir = std.testing.tmpDir(.{});
+    var fin_new = try tmp_dir.dir.createFile("in.test", .{});
+    fin_new.close();
+    const fin = try tmp_dir.dir.openFile("in.test", .{});
+    var fout = try tmp_dir.dir.createFile("out.test", .{});
+
+    // set-up allocator & buffer
+    var alloc = std.testing.allocator_instance.allocator();
+    var buf = std.ArrayList(u8).init(alloc);
+
+    // First try out a combination that should work
+    _ = try replaceAllUnmanaged(.{.test_f1 = "test"}, alloc, &buf, fin, fout);
 }
 
 /// See `replace_all_unmanaged`
@@ -58,7 +76,7 @@ pub fn replaceAllInDir(
     var buffer = std.ArrayList(u8).init(alloc);
     defer buffer.deinit();
     var n_replaced: usize = 0;
-    
+
     // Iterate over input dir
     var input_iter = try input_dir.openIterableDir(".", .{});
     var walker = try input_iter.walk(alloc);
@@ -75,7 +93,7 @@ pub fn replaceAllInDir(
 
         n_replaced += 1;
     }
-    
+
     return n_replaced;
 }
 
@@ -86,7 +104,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             @compileError("Dict type must be a struct where all fields have type ?[]const u8");
         }
     }
-    
+
     return struct {
         in_path: []const u8,
         out_path: []const u8,
@@ -99,7 +117,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             InvalidArgument,
             MalformedReplacementDirective,
             MissingReplacementDirective,
-            UnknownReplacementTarget  
+            UnknownReplacementTarget
         };
 
         pub const command_usage = generateUsage();
@@ -133,7 +151,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 if (i == 1) {
                     in_path = current_arg;
                     continue;
-                // Second argument is the output folder
+                    // Second argument is the output folder
                 } else if (i == 2) {
                     out_path = current_arg;
                     continue;
@@ -146,11 +164,11 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                     return ParseError.MalformedReplacementDirective;
                 }
 
-                // skip over this argument next iteration        
+                // skip over this argument next iteration
                 i += 1;
                 var target: []const u8 = args[i];
                 i += 1;
-                var replacement: []const u8 = args[i];        
+                var replacement: []const u8 = args[i];
 
                 // Verify that TARGET is actually supposed to be replaced and construct dictionary
                 inline for (std.meta.fields(Dict)) |field| {
@@ -178,11 +196,11 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 ._alloc = alloc
             };
         }
-        
+
         pub fn deinit(self: @This()) void {
             std.process.argsFree(self._alloc, self._args);
         }
-        
+
         fn zeroDictionary(dict: *Dict) void {
             inline for (std.meta.fields(Dict)) |field| {
                 @field(dict, field.name) = null;
@@ -191,7 +209,8 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
 
         fn generateUsage() []const u8 {
             comptime {
-                var usage: []const u8 = "Usage: "
+                var usage: []const u8 =
+                    "Usage: "
                     ++ command
                     ++ " [input_path] [output_path] [replacement directives]\n\n"
                     ++
@@ -207,14 +226,13 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                     \\Targets:
                     \\
                 ;
-                
+
                 inline for (std.meta.fieldNames(Dict)) |target_name| {
                     usage = usage ++ "    " ++ target_name ++ "\n";
                 }
-                
+
                 return usage;
-            }   
+            }
         }
     }; // return struct { ... }; <- do not remove semicolon
 }
-
