@@ -59,9 +59,25 @@ pub fn replaceAll(
     alloc: Allocator,
     input_file: std.fs.File,
     output_file: std.fs.File
-) !void {
-    var buffer = std.ArrayList(u8).init();
-    try replaceAllUnmanaged(dict, alloc, &buffer, input_file, output_file);
+) !usize {
+    var buffer = std.ArrayList(u8).init(alloc);
+    defer buffer.deinit();
+    return try replaceAllUnmanaged(dict, alloc, &buffer, input_file, output_file);
+}
+
+test replaceAll {
+    // Set-up test files
+    const tmp_dir = std.testing.tmpDir(.{});
+    var fin_new = try tmp_dir.dir.createFile("in.test", .{});
+    fin_new.close();
+    const fin = try tmp_dir.dir.openFile("in.test", .{});
+    var fout = try tmp_dir.dir.createFile("out.test", .{});
+
+    // set-up allocator & buffer
+    var alloc = std.testing.allocator_instance.allocator();
+
+    // First try out a combination that should work
+    _ = try replaceAll(.{.test_f1 = "test"}, alloc, fin, fout);
 }
 
 /// Iterate (recusively) over all elements in `input_dir` and pass them to `replace_all`. Returns
@@ -75,26 +91,55 @@ pub fn replaceAllInDir(
     // Re-use the same buffer
     var buffer = std.ArrayList(u8).init(alloc);
     defer buffer.deinit();
-    var n_replaced: usize = 0;
+    var n_touched: usize = 0;
 
     // Iterate over input dir
     var input_iter = try input_dir.openIterableDir(".", .{});
     var walker = try input_iter.walk(alloc);
+    defer walker.deinit();
+    
     while (try walker.next()) |entry| {
+        // Handle creating directories
+        if (entry.kind == std.fs.File.Kind.directory) {
+            try output_dir.makePath(entry.path);
+            continue;
+        }
+        n_touched += 1;
+
         // Open file for reading
-        const input_file = input_dir.openFile(entry.path, .{});
+        const input_file = try input_dir.openFile(entry.path, .{});
 
         // Create output file if it does not exist
-        try output_dir.makePath(entry.path);
-        const output_file = output_dir.createFile(entry.path, .{});
+        const output_file = try output_dir.createFile(entry.path, .{});
 
         //Run our replacement procedure
-        try replaceAllUnmanaged(dict, alloc, &buffer, input_file, output_file);
-
-        n_replaced += 1;
+        _ = try replaceAllUnmanaged(dict, alloc, &buffer, input_file, output_file);
     }
 
-    return n_replaced;
+    return n_touched;
+}
+
+test replaceAllInDir {
+    const tmp_dir = std.testing.tmpDir(.{}).dir;
+    try tmp_dir.makeDir("in");
+    try tmp_dir.makeDir("out");
+    const in_dir = try tmp_dir.openDir("in", .{});
+    const out_dir = try tmp_dir.openDir("out", .{});
+
+    const test_dict = .{ .ohno = "allgood" };
+    var alloc = std.testing.allocator_instance.allocator();
+
+    // try empty directories
+    _ = try replaceAllInDir(test_dict, alloc, in_dir, out_dir);
+
+    // Add some files to directories
+    _ = try in_dir.createFile("test1.test", .{});
+    _ = try in_dir.createFile("test2.test", .{});
+    _ = try replaceAllInDir(test_dict, alloc, in_dir, out_dir);
+    
+    // Add a subdirectory
+    try in_dir.makeDir("subdir");
+    _ = try replaceAllInDir(test_dict, alloc, in_dir, out_dir);
 }
 
 pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
