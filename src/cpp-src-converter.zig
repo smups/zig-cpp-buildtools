@@ -154,8 +154,6 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
         in_path: []const u8,
         out_path: []const u8,
         dictionary: Dict,
-        _raw_args: []const [:0]u8,
-        _alloc: Allocator,
 
         pub const ParseError = error {
             MissingDirs,
@@ -167,10 +165,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
 
         pub const command_usage = generateUsage();
 
-        pub fn parseArgsAlloc(alloc: Allocator) !@This() {
-            // Allocate arguments.
-            const args = try std.process.argsAlloc(alloc);
-
+        pub fn parseArgs(args: []const [:0]const u8) !@This() {
             // These are all just pointers to args
             var out_path: ?[]const u8 = null;
             var in_path: ?[]const u8 = null;
@@ -237,13 +232,7 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
                 .in_path = in_path orelse unreachable,
                 .out_path = out_path orelse unreachable,
                 .dictionary = dictionary,
-                ._raw_args = args,
-                ._alloc = alloc
             };
-        }
-
-        pub fn deinit(self: @This()) void {
-            std.process.argsFree(self._alloc, self._args);
         }
 
         fn zeroDictionary(dict: *Dict) void {
@@ -280,4 +269,34 @@ pub fn Arguments(comptime Dict: type, comptime command: []const u8) type {
             }
         }
     }; // return struct { ... }; <- do not remove semicolon
+}
+
+test "empty" {
+    const EmptyDict = struct {};
+    const cmd = "cmd";
+    const args = [_][:0]const u8 {
+        cmd, "infile.test", "outfile.test"
+    };
+
+    const parsed_args = try Arguments(EmptyDict, cmd).parseArgs(&args);
+
+    // Assertions
+    try std.testing.expectEqualStrings(args[1], parsed_args.in_path);
+    try std.testing.expectEqualStrings(args[2], parsed_args.out_path);
+}
+
+test "basic" {
+    const TestDict = struct { tf1: ?[]const u8 };
+    const cmd = "cmd";
+    const args = [_][:0]const u8 {
+        cmd, "infile.test", "outfile.test",
+        "-r", "tf1", "replaced1"
+    };
+
+    const parsed_args = try Arguments(TestDict, cmd).parseArgs(&args);
+
+    // Assertions
+    try std.testing.expectEqualStrings(args[1], parsed_args.in_path);
+    try std.testing.expectEqualStrings(args[2], parsed_args.out_path);
+    try std.testing.expectEqualStrings("replaced1", parsed_args.dictionary.tf1.?);
 }
