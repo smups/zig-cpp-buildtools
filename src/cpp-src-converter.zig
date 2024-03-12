@@ -38,8 +38,9 @@ pub fn replaceAllUnmanaged(
         n_reps += try str.replace(field.name, replacement);
     }
 
-    //Write modifed file to output
-    try output_file.writer().writeAll(str.bytes());
+    //Write modifed file to output - block untill disk operations are DONE!
+    try output_file.writeAll(str.bytes());
+    try output_file.sync();
 
     return n_reps;
 }
