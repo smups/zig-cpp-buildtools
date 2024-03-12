@@ -3,6 +3,10 @@ const zstr = @import("zstr");
 
 const Allocator = std.mem.Allocator;
 
+pub const ReplaceError = error {
+    NoReplacement
+};
+
 /// Reads file located at `input_path` and replaces all occurences of matching strings with their
 /// corresponding targets, as defined by the `dict` paramter. `input_file` and `output_file` may
 /// point to the same file. The `dict` paramter works as follows: passing `.{ .yeet = "skeet" }`
@@ -16,23 +20,26 @@ pub fn replaceAllUnmanaged(
     output_file: std.fs.File
 ) !usize {
     // Clear buffer
-    buffer.items = &[_]u8 {};
+    buffer.items.len = 0;
 
     // Read file
     try input_file.reader().readAllArrayList(buffer, std.math.maxInt(usize));
 
     // Turn buffer into string
-    var zig_str = try zstr.fromConstBytes(alloc, buffer.items);
-    defer zig_str.deinit();
+    var str = try zstr.fromConstBytes(alloc, buffer.items);
+    defer str.deinit();
 
     // Replace all matching entries in buffer
     var n_reps: usize = 0;
     inline for (std.meta.fields(@TypeOf(dict))) |field| {
-        n_reps += try zig_str.replace(field.name, @field(dict, field.name));
+        const replacement = @field(dict, field.name) orelse {
+            return ReplaceError.NoReplacement;
+        };
+        n_reps += try str.replace(field.name, replacement);
     }
 
-    //Write shit to file
-    try output_file.writer().writeAll(buffer.items);
+    //Write modifed file to output
+    try output_file.writer().writeAll(str.bytes());
 
     return n_reps;
 }
@@ -50,7 +57,8 @@ test replaceAllUnmanaged {
     var buf = std.ArrayList(u8).init(alloc);
 
     // First try out a combination that should work
-    _ = try replaceAllUnmanaged(.{.test_f1 = "test"}, alloc, &buf, fin, fout);
+    const dict = struct { test_f1: ?[]const u8 }{ .test_f1 = "test" };
+    _ = try replaceAllUnmanaged(dict, alloc, &buf, fin, fout);
 }
 
 /// See `replace_all_unmanaged`
@@ -77,7 +85,8 @@ test replaceAll {
     var alloc = std.testing.allocator_instance.allocator();
 
     // First try out a combination that should work
-    _ = try replaceAll(.{.test_f1 = "test"}, alloc, fin, fout);
+    const dict = struct { test_f1: ?[]const u8 }{ .test_f1 = "test" };
+    _ = try replaceAll(dict, alloc, fin, fout);
 }
 
 /// Iterate (recusively) over all elements in `input_dir` and pass them to `replace_all`. Returns
@@ -126,7 +135,7 @@ test replaceAllInDir {
     const in_dir = try tmp_dir.openDir("in", .{});
     const out_dir = try tmp_dir.openDir("out", .{});
 
-    const test_dict = .{ .ohno = "allgood" };
+    const test_dict = struct { ohno: ?[]const u8 }{ .ohno = "allgood" };
     var alloc = std.testing.allocator_instance.allocator();
 
     // try empty directories
@@ -299,4 +308,41 @@ test "basic" {
     try std.testing.expectEqualStrings(args[1], parsed_args.in_path);
     try std.testing.expectEqualStrings(args[2], parsed_args.out_path);
     try std.testing.expectEqualStrings("replaced1", parsed_args.dictionary.tf1.?);
+}
+
+test "integration" {
+    const alloc = std.testing.allocator_instance.allocator();
+    const tmp = std.testing.tmpDir(.{}).dir;
+    const in_dir = try tmp.makeOpenPath("in", .{});
+    const out_dir = try tmp.makeOpenPath("out", .{});
+    const test_file = try in_dir.createFile("t.test", .{});
+    try test_file.writeAll("tf1");
+    test_file.close();
+
+    // Get absolute paths
+    const in_path = try in_dir.realpathAlloc(alloc, ".");
+    const out_path = try out_dir.realpathAlloc(alloc, ".");
+    const in_path_z = try alloc.dupeZ(u8, in_path);
+    const out_path_z = try alloc.dupeZ(u8, out_path);
+    alloc.free(in_path);
+    alloc.free(out_path);
+    defer alloc.free(in_path_z);
+    defer alloc.free(out_path_z);
+    
+    // Parse args + replace all in dir
+    const TestDict = struct { tf1: ?[]const u8 };
+    const cmd = "cmd";
+    const args = [_][:0]const u8 {
+        cmd, in_path_z, out_path_z,
+        "-r", "tf1", "replaced1"
+    };
+    const parsed_args = try Arguments(TestDict, cmd).parseArgs(&args);
+    try std.testing.expectEqualStrings("replaced1", parsed_args.dictionary.tf1.?);
+    _ = try replaceAllInDir(parsed_args.dictionary, alloc, in_dir, out_dir);
+
+    // Check the output
+    const test_file_out = try out_dir.openFile("t.test", .{});
+    const out = try test_file_out.readToEndAlloc(alloc, 100);
+    defer alloc.free(out);
+    try std.testing.expectEqualStrings("replaced1", out);
 }
